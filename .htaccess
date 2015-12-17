@@ -1,0 +1,20 @@
+RewriteEngine On
+
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-l
+RewriteRule ^(.+)$ public/index.php?url=$1 [QSA,L]
+
+php_flag display_startup_errors on
+php_flag display_errors on
+php_flag html_errors on
+
+# show fancy index when no index.php file is present in a dir
+Options +Indexes
+IndexOptions FancyIndexing
+
+# set page to be loaded
+DirectoryIndex public/index.php
+
+# pages to ignore in index listings
+IndexIgnore *.txt *.ico *.json *.lock
