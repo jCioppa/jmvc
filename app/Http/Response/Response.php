@@ -69,23 +69,7 @@
         const HTTP_NETWORK_AUTHENTICATION_REQUIRED = 511;                             // RFC6585
 
         // }}}
-        
-        protected $redirect;    
-        protected $routeDefined = true;
-        protected $methodClash = false;
-        protected $controllerExists = true;
-        protected $methodExists = true;
-        protected $method;
-        public $lastPage;
-
-        protected $headers;
-        protected $content;
-        protected $version;
-        protected $statusCode;
-        protected $statusText;
-        protected $charset;
-
-        public static $statusTexts = array(
+        /* {{{ */ public static $statusTexts = array(
             100 => 'Continue',
             101 => 'Switching Protocols',
             102 => 'Processing',            // RFC2518
@@ -146,8 +130,18 @@
             508 => 'Loop Detected',                                               // RFC5842
             510 => 'Not Extended',                                                // RFC2774
             511 => 'Network Authentication Required',                             // RFC6585
-        );
-
+        ); /* }}} */
+       
+        protected $redirect;    
+        protected $lastPage;
+        protected $headers;
+        protected $content;
+        protected $version;
+        protected $statusCode;
+        protected $statusText;
+        protected $charset;
+        protected $messages = array();
+      
         public function hasRedirect() {
             return (isset($this->redirect) && $this->redirect != null);
         }
@@ -156,23 +150,12 @@
             $this->redirect->Redirect();
         }
 
+        public function lastPage() {
+            return $this->lastPage;
+        }
+
         public function setLastPage($page) {
             $this->lastPage = $page;
-        }
-        public function routeDefined($bool) {
-            $this->routeDefined = $bool;
-        }
-
-        public function controllerExists($bool) {
-            $this->controllerExists = $bool;
-        }
-
-        public function methodExists($bool) {
-            $this->methodExists = $bool;
-        }
-
-        public function methodClash($bool) {
-            $this->methodClash = $bool;
         }
 
         public function statusCode() {
@@ -183,34 +166,9 @@
             $this->statusCode = $code;
         }
 
-        public function setMethod($method) {
-            $this->method = $method;
-        }
-
-        public function getError() {
-
-            if ($this->routeDefined == false) {
-                return "route not defined";
-            }
-
-            if ($this->controllerExists == false) {
-                return "controller does not exist";
-            }
-
-            if ($this->methodExists == false) {
-                return "method does not exist";
-            }
-
-            if ($this->methodClash == true) {
-                return "method clash";
-            }
-
-            return "undefined error";
-        }
-
-
         public function send() {
             $this->sendHeaders();
+            if (!$this->isOk()) $this->addErrors();
             $this->sendContent(); 
         }
 
@@ -297,10 +255,38 @@
             else {
                 $this->content = $ret;
             }
+
+        }
+
+        public function addErrors() {
+             if (!empty($this->messages)) {
+                foreach($this->messages as $message) {
+                    $this->content .= $message;
+                }
+             }
         }
 
         public function getContent() {
             return $this->content;
+        }
+
+        public function log($message) {
+            array_push($this->messages, $message); 
+        }
+
+        public function withStatus($stat) {
+            $this->setStatus($stat);
+            return $this;
+        }
+
+        public function withLog($log) {
+            $this->log($log);
+            return $this;
+        }
+
+        public function withContent($content) {
+            $this->setContent($content);
+            return $this;
         }
 
     }

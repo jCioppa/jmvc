@@ -45,9 +45,7 @@
         public static function make($array = null) {
             return new self($array);
         }
-     
-
-
+        
         public function init() {
 
             $this->headers = getallheaders();
@@ -109,6 +107,7 @@
             }
 
             return isset(static::$formats[$format]) ? static::$formats[$format][0] : null;
+
         }
 
         public static function request() {

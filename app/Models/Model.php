@@ -42,6 +42,15 @@
             return $model;
         }
 
+        public static function where($array) {
+            $type = self::classType();
+            $model = new $type;
+
+            $found = $model->whereModel($array);
+            if ($found == true) return $model;
+            return null; 
+        }
+
     }
 
     abstract class Model {
@@ -55,6 +64,7 @@
         protected abstract function updateStmt();
         protected abstract function properties();
         protected abstract function setProperties(array $array);
+        protected abstract function whereStmt(array $array);
 
         public function __construct() { 
             self::initDB(); 
@@ -100,17 +110,23 @@
         }
 
         public function findModel($id) {
-
  			$this->findStmt()->execute(['id' => $id]);
 			$array = $this->findStmt()->fetch();
 			$this->findStmt()->closeCursor();
-
 			if (!is_array($array)) return false;
 			if (!isset($array['id'])) return false;
-
             $this->setProperties($array);
             return true;
+        }
 
+        public function whereModel($array) {
+            $stmt = $this->whereStmt($array);
+            $stmt->execute($array);
+            $result = $stmt->fetch(); 
+            $stmt->closeCursor();
+            if (!is_array($result) || !isset($result['id'])) return false;
+            $this->setProperties($result);
+            return true;
         }
 
         public function delete() {

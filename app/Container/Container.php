@@ -70,6 +70,7 @@
         }
 
         public function exec($class,$method, $arguments) {
+        // execute a controller method using dependancy injection!
 
             $className = get_class($class);
             $r = new \ReflectionMethod($className, $method);

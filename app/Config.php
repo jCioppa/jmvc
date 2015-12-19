@@ -7,20 +7,19 @@
         public function __construct(){}
 
         public static function get($val, $default = null) {
-
             $vals = explode('.', $val);
             if (!$vals) return null;
 
             $file = $vals[0];
             $key = $vals[1];
-            
+
             $path = CONFIG_FILES . "/$file" . '.php';
 
             if(! file_exists($path)) 
                 return null;
 
-            $settings = include $path;
-            
+            $settings = include ($path);
+
             return isset($settings[$key]) ? $settings[$key] : $default;
 
         }

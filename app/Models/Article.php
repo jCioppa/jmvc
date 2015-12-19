@@ -18,6 +18,17 @@
             $this->allStmt = self::$PDO->prepare('select * from articles');
         }
 
+        public function whereStmt(array $array) {
+            $query = "select * from articles where ";
+            foreach ($array as $key => $val) {
+                $query .= $key . " = :" . $key . ' and ';
+            }
+            $len = strlen($query);
+            $query = substr($query, 0, $len - 5);
+            return self::$PDO->prepare($query);
+        }
+
+ 
         public function setProperties(array $array) {
             $this->title = $array['title'];
             $this->body = $array['body'];
@@ -41,5 +52,6 @@
         public static function table() {
             return 'articles';
         }
+
 
     }

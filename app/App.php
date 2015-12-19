@@ -13,7 +13,7 @@
     use App\Http\Request\Request;
     use App\Http\Route\Route;
 
-    class App extends Container implements ApplicationContract, HttpKernelInterface  {
+    class App extends Container implements ApplicationContract, HttpKernelInterface {
 
         protected static $instance;
         protected $routes = array();
@@ -23,91 +23,95 @@
         protected $databasePath;
         protected $providers = array();
         protected $aliases = array();
+        protected $caughtMiddleware = "";
+
+        // global middleware {{{
+        protected $middleware = [ 
+            "\App\Http\Middleware\BasicMiddleware", 
+            "\App\Http\Middleware\TestMiddleware" 
+        ]; // }}}
+
+        protected $user = null;
 
         private function __construct($basePath = null) {
+
             $this->basePath = $basePath;
             $this->storagePath = $this->basePath . '/storage';
             $this->configPath = $this->basePath . '/config';
             $this->databasePath = $this->basePath . '/database';
+
+            $this->initUser();
+
         } 
 
+    // user authentication {{{
+        
+        public function user() {
+            return $this->user; 
+        }
+
+        public function initUser() {
+
+            if (session('logged_in') && session('user_email')) {
+
+                $user = \App\Models\User::where(['email' => session('user_email')]);
+
+                $user_browser = $_SERVER['HTTP_USER_AGENT'];
+                $login_check = hash('sha512', $user->password . $user_browser);
+                $login_string = session()->get('login_string');
+                
+                if ($login_check === $login_string) {
+                    $this->user = $user;
+                } else {
+                    $this->clearUser();
+                }
+
+            } else {
+                $this->clearUser();
+            }
+        }
+
+        public function setUser(\App\Models\User $user) {
+              $this->user = $user;
+        }
+
+        public function clearUser() {
+
+            $this->user = null;
+
+            session()->set('logged_in', false);
+            session()->set('user_email', null);
+            session()->set('login_string', null);
+
+        }
+
+    // }}}
+
         public static function instance($basePath = null){
-            if (!isset(self::$instance)) 
+            if (!isset(self::$instance)) {
                 self::$instance = new self($basePath);
+            }
+            
 			return self::$instance;
         }
-    
 
-        public function _setRoute($url, $method, \App\Action\Action $action) {
-                $route = new Route($method, $action);
-                $this->routes[$url] = $route;
-                return $this;
+        public function setCaughtMiddleware($middleware) {
+            $this->caughtMiddleware = $middleware;
         }
 
-        public function _getRoute($url) {
-            return isset($this->routes[$url]) ? $this->routes[$url] : null;
+        public static function app($basePath = null) {
+            return self::instance($basePath);
         }
-
-        public function _get($url, \App\Action\Action $action) {
-            $this->_setRoute($url, "GET", $action);
-        }
-
-        public function _post($url, \App\Action\Action $action) {
-            $this->_setRoute($url, "POST", $action);
-        }
-
-
-    // routing {{{
-
-        public function setRoute($url, $method, $controller, $controller_method) {
-            $route = new Route($method, $controller, $controller_method);
-            $this->routes[$url] = $route; 
-            return $this;
-        }
-
-        public function get($url, $action) {
-            $controller = explode('@', $action)[0];
-            $method = explode('@', $action)[1];
-            $this->setRoute($url, "GET", $controller, $method);  
-        }
-
-        public function post($url, $action) {
-            $controller = explode('@', $action)[0];
-            $method = explode('@', $action)[1];
-            $this->setRoute($url, "POST", $controller, $method);  
-        }
-
-        public function patch($url, $action) {
-            $controller = explode('@', $action)[0];
-            $method = explode('@', $action)[1];
-            $this->setRoute($url, "PATCH", $controller, $method);  
-        }
-
-        public function hasRoute($url) {
-            return isset($this->routes[$url]);
-        }
-
-        public function getRoute($url) {
-            return isset($this->routes[$url]) ? $this->routes[$url] : null;
-        }
-
-        public function getRoutes() {
-            return $this->routes;
-        }
-
-        public function setRoutes(array $routes) {
-            $this->routes = $routes;
-        }
-
-
-	// }}}	
 
         public function registerProviders() {
             $providers = Config::get('app.providers');  
             foreach($providers as $provider) {
                 if (class_exists($provider)) {
-                    array_push($this->providers, $p = new $provider);         
-                    $p->register($this);
+                    $p = new $provider;
+                    if ($p instanceof \App\Providers\ServiceProvider) {
+                        array_push($this->providers, $p);         
+                        $p->register($this);
+                    }
                 }
             } 
         }
@@ -115,93 +119,133 @@
         public function run(Request $request = null) {
         
             session()->markFlashed();
-            
+
             $response = $this->dispatch($request);
-            
+             
             if ($response instanceof \App\Http\Response\Response)  {
                 $response->send();
             } else  {
                 print_r($response);     
             }
-            
             session()->flushFlashed();
-            session()->set('last_page', $response->lastPage);
+            session()->set('last_page', $response->lastPage());
+
             $this->terminate($request, $response);
 
         }
-
-        public static function app($basePath = null) {
-            return self::instance($basePath);
-        }
-
+ 
         public function dispatch(Request $request = null) {
 
             $method = $request ? $request->method() : $this->getMethod();
             $url = $request ? $request->query_string() : $this->getPathInfo();
             $response = new Response();
-
-            if ($this->hasRoute($url)) {
-                $response->routeDefined(true);
-                return $this->handleFoundRoute($response, $method, $this->routes[$url]);
-            }
         
-            $response->routeDefined(false);
-            $response->setStatus(404); 
-            $response->setContent("<h1>Route definition fail</h1>");
-            return $response;
+            $ret = $this->sendThroughPipeline($this->middleware, function () use ($response, $method, $url) {
+                if ($this->hasRoute($url)) {
+                    $args = $this->extractArgs($url);
+                    return $this->handleFoundRoute($response, $method, $this->routes[$url], $args);
+                }
+                return $response->withLog("page not found")->withStatus(404)->withContent("<h1>Route not defined</h1>");
+            });
+
+            if ($ret instanceof \App\Http\Response\Response) {
+                return $ret;
+            } else {
+                return $response->withStatus(404)->withLog("caught by middleware: " . $this->caughtMiddleware)->withContent($ret);
+            }
+
         }
 
-        public function handleFoundRoute(Response $response, $method, $route) {
+        public function sendThroughPipeline($middleware, \Closure $next) {
+
+            if (empty($middleware)) 
+                return $next();
             
+            return (new \App\Pipeline\Pipeline($this))
+                ->send($this->make("App\Http\Request\Request"))
+                ->through($middleware)
+                ->then($next);
+
+        }
+
+    /* request handling {{{ */
+
+        public function handleFoundRoute(Response $response, $method, $route, $args = []) {
             if ($method == $route->method()) {
-                $response->methodClash(false);
-                return $this->handleMatchedRoute($response, $route);
+                $middleware = $route->middleware();
+                return $this->sendThroughPipeline(
+                    $middleware, 
+                    function () use ($response, $route, $args) { 
+                        return $this->handleMatchedRoute($response, $route, $args);
+                    }
+                );
             } 
 
-            $response->methodClash(true);
-            $response->setStatus(404);
-            $response->setContent("<h1>Method clash</h1>");
-            return $response;
-
+            return $response->withLog("something went wrong")->withStatus(500)->withContent("<h1>Method clash</h1>");
         }
 
-        public function handleMatchedRoute(Response $response, $route) {
-            
-            $controller = $route->controller();
-            $method = $route->controllerMethod(); 
-            if ($this->controller_exists($controller)) {
-                $instance = new $controller;
-                $response->controllerExists(true);
+        public function handleMatchedRoute(Response $response, $route, $args = []) {
 
-                if ($this->class_method_exists($controller, $method)){
+            $action = $route->action(); 
 
-                    $response->methodExists(true);
-                    $ret = $this->call($instance, $method);
-                    $response->setStatus(200);
-                    $response->setContent($ret); 
-                    return $response;                                       
-                }
+            if ($route->isControllerAction()){
+                    return $this->handleControllerAction($action, $response, $args);
+            } 
 
-                else  {
-
-                    $response->methodExists(false);
-                    $response->setStatus(404);
-                    $response->setContent("<h1>Method error</h1>");
-                    return $response;
-
-                }
-            } else {
-
-                $response->controllerExists(false);
-                $response->setStatus(404);
-                $response->setContent("<h1>Controller Error</h1>");
-                return $response;
-
+            if($route->isClosureAction()){
+                    return $this->handleClosureAction($action, $response, $args);
             }
+       
+        }
+
+        public function handleControllerAction(\App\Action\ControllerAction $action, Response $response, $args = []) {
+
+                $controller = $action->controller();
+                $method = $action->controllerMethod();
+
+                if ($this->controller_exists($controller)) {
+
+                    $instance = new $controller;
+                    
+                    if ($this->class_method_exists($controller, $method)){
+
+                        $ret = $this->callControllerMethod($instance, $method, $args);
+                        return $response
+                            ->withStatus(200)
+                            ->withContent($ret);
+                    }
+
+                    else  {
+
+                        return $response
+                            ->withLog("something went wrong!")
+                            ->withStatus(500)
+                            ->withContent("<h1>Method error</h1>");
+
+                    }
+
+                } else {
+
+                    return $response
+                        ->withLog("whoops, something went wrong!")
+                        ->withStatus(500)
+                        ->withContent("<h1>Controller error</h1>");
+
+                }
+
 
         }
 
-        public function call($instance, $method, $arguments = array()) {
+        public function handleClosureAction(\App\Action\ClosureAction $action, Response $response, $args = []){
+                        $closure = $action->closure();
+                        $ret = $this->callClosureAction($closure, $args);
+
+                        return $response
+                            ->withStatus(200)
+                            ->withContent($ret);
+        }
+
+        public function callControllerMethod($instance, $method, $arguments = []) {
  
             $dependancies = $this->getDependancies(
                 new \ReflectionMethod(get_class($instance), $method), 
@@ -210,7 +254,11 @@
             
             return call_user_func_array(array($instance, $method), $dependancies); 
 
-        } 
+        }
+
+        public function callClosureAction($closure, $args = []) {
+            return call_user_func($closure, $args);
+        }
 
         public function getDependancies($reflectionClass, $arguments) {
 
@@ -230,6 +278,8 @@
             return array_merge($args, $arguments);
         }
 
+        /* }}} */
+
         protected function getMethod()
         {
             if (isset($_POST['_method'])) {
@@ -240,13 +290,14 @@
         }
 
        public function getPathInfo()
-        {
-            $query = isset($_GET['url']) ? $_GET['url'] : '';
-            return $query;  
+       {
+           $query = isset($_GET['url']) ? $_GET['url'] : '';
+           return $query;  
+       }
+
+        public function hasMiddleware() {
+            return !empty($this->middleware);
         }
-
-
-
 
         // ApplicationContract implementation {{{
         
@@ -322,6 +373,46 @@
         }
 
         // }}}
+    // routing {{{
+
+        public function hasRoute($url) {
+            if(isset($this->routes[$url])) return true;
+            return false;
+        }
+    
+        public function extractArgs($url) {
+            return [];
+        }
+
+        public function setRoute($url, $method, \App\Action\Action $action) {
+            $route = new Route($method, $action);
+            $this->routes[$url] = $route; 
+            return $this;
+        }
+
+        public function get($url, $action, $options = []) {
+            $this->routes[$url] = \App\Http\Route\RouteFactory::create(["method" => "GET", "action" => $action, 'options' => $options]);
+        }
+
+        public function post($url, $action, $options = []) {
+            $this->routes[$url] = \App\Http\Route\RouteFactory::create(["method" => "POST", "action" => $action, 'options' => $options]);
+        }
+
+        public function patch($url, $action, $options = []) {
+            $this->routes[$url] = \App\Http\Route\RouteFactory::create(["method" => "PATCH", "action" => $action, 'options' => $options]);
+        }
+
+        public function getRoute($url) {
+            return isset($this->routes[$url]) ? $this->routes[$url] : null;
+        }
+        public function getRoutes() {
+            return $this->routes;
+        }
+        public function setRoutes(array $routes) {
+            $this->routes = $routes;
+        }
+
+	// }}}	
 
     }
 

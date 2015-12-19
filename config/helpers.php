@@ -1,5 +1,39 @@
 <?php
 
+/* hashing functions {{{ */
+
+    if(!function_exists("create_hash")) {
+        function create_hash($pass, $salt, $hash_method = 'sha1') {
+            if (function_exists('hash') && in_array($hash_method, hash_algos())) {
+                return hash($hash_method, $salt . $pass);
+            } 
+            return sha1($salt . $pass);
+        }
+    }
+
+    if (!function_exists("random_salt")) {
+        function random_salt($len = 8) {
+            $chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789`~!@#$%^&*()-=_+';
+            $l = strlen($chars) - 1;
+            $str = '';
+            for($i = 0; $i < $len; $i++) {
+                $str .= $chars[rand(0,$l)];
+            }
+            return $str;
+        }
+    }
+
+    if (!function_exists("validate_login")) {
+        function validate_login($pass, $hashed_pass, $salt, $hash_method = 'sha1') {
+            if (function_exists('hash') && in_array($hash_method, hash_algos())) {
+                return ($hashed_pass == hash($hash_method, $salt . $pass));
+            }
+            return ($hashed_pass === sha1($salt . $pass));
+        }
+    }
+
+/* }}} */
+
     if (! function_exists("view")) {
         function view($view) {
             return new App\Views\View($view);
@@ -78,7 +112,7 @@
     }
 
     function base_path($file) {
-        return ROOT . "/$file";
+        return app()->basePath() . "/$file";
     }
  
     function viewPage($page) {

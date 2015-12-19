@@ -7,6 +7,7 @@
         use Singleton;
 
         public function __construct() {
+
             session_start();
         }
 

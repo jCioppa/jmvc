@@ -5,13 +5,15 @@
     class ClosureAction extends Action {
 
         protected $closure;
+        protected $args = [];
 
         public function __construct(\Closure $c) {
             parent::__construct();
             $this->closure = $c;
         }
 
-        public function perform() {
-            return $this->closure();
+        public function closure() {
+            return $this->closure;
         }
+
     }

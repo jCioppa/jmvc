@@ -13,9 +13,12 @@
             $this->method = $m;
         }
 
-        public function perform() {
-            $c = $this->controller;
-            $m = $this->method;
-            return $c->$m(); 
+        public function controller() {
+            return $this->controller;
         }
+
+        public function controllerMethod() {
+            return $this->method;
+        }
+
     }

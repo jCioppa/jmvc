@@ -19,7 +19,7 @@ namespace App\Controllers;
         public function index() {
             
             $users = User::all();
-            $article = Article::find(1);
+            $article = Article::where(['id' => 1]);
 
             return view('index')
                 ->withUsers($users)
