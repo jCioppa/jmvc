@@ -1,0 +1,14 @@
+#! /usr/bin/env php
+
+<?php
+
+    include '../config/config.php';
+
+    use \Commands\Console\Application;
+    use \Commands\Commands\FibonacciCommand;
+
+    (new Application('Fibonacci Generator', '1.0'))
+        ->useCommand(new FibonacciCommand())
+        ->run();
+	
+?>

@@ -7,7 +7,8 @@
 
         'providers' => [
             '\App\Providers\AppServiceProvider',
-            '\App\Providers\RequestServiceProvider'
+            '\App\Providers\RequestServiceProvider',
+            '\App\Providers\ExceptionHandlerProvider'
         ],
 
         'aliases' => [

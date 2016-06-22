@@ -2,9 +2,9 @@
 
     namespace Test;
 
-    include 'vendor/autoload.php';
-    include 'config/paths.php';
-    include 'config/helpers.php';
+    require_once( 'vendor/autoload.php');
+    require_once ('config/paths.php');
+    require_once( 'config/helpers.php' );
 
     use App\App;
     use App\Http\Request\Request;

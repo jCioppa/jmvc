@@ -16,4 +16,9 @@
             return $this->closure;
         }
 
+        public function perform($app, $response, $args = []) {
+            $closure = $this->closure();
+            return $app->callClosureAction($closure, $args);
+        }
+
     }

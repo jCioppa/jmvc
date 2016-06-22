@@ -141,7 +141,10 @@
         protected $statusText;
         protected $charset;
         protected $messages = array();
-      
+
+        public function __construct() {
+        }
+
         public function hasRedirect() {
             return (isset($this->redirect) && $this->redirect != null);
         }
@@ -242,7 +245,7 @@
             
             else if ($ret instanceof \App\Http\Redirect\Redirector) { 
                 $this->statusCode = 307;
-                $this->content = "<h1>redirecting</h1>";
+                $this->content = "<h1>Redirecting</h1>";
                 $this->redirect = $ret; 
             }
 

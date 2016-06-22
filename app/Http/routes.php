@@ -5,7 +5,6 @@ $app->post("testPost", "App\Controllers\IndexController@testPost");
 $app->get("hello", function() {return "hello world!";});
 $app->get("error", "App\Controllers\ErrorController@index");
 
-
 /* authentication routes */
 
 $app->get("auth/login", "App\Controllers\Auth\LoginController@index",[

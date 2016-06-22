@@ -21,7 +21,7 @@
 
         public function offsetSet($offset, $value) {
 
-            if (! $value instanceof Closure) {
+            if (! ($value instanceof Closure)) {
                 $value = function () use ($value) {
                     return $value;
                 };
@@ -53,10 +53,6 @@
                 };
         }
 
-        public function resolve($contract) {
-            return $this->make($contract);
-        }
-
         public function hasBinding($name) {
             return isset($this->bindings[$name]) || isset($this->instances[$name]) || isset($this->aliases[$name]);
         }
@@ -69,6 +65,7 @@
             return $this->bindings[$name]();
         }
 
+
         public function exec($class,$method, $arguments) {
         // execute a controller method using dependancy injection!
 
@@ -78,11 +75,12 @@
             $args = array();
 
             foreach($params as $param) {
+
                 $typeHint = $param->getClass();
                 if($typeHint) $typeHint = $typeHint->name;
 
                 if ($this->hasBinding($typeHint)) {
-                    $arg = $this->resolve($typeHint);
+                    $arg = $this->make($typeHint);
                     array_push($args, $arg);
                 } 
             }

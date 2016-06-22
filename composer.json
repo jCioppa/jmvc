@@ -8,7 +8,10 @@
 		    "App\\" : "app",
             "Config\\" : "config",
             "Test\\" : "tests",
-            "Contracts\\" : "contracts"
+            "Contracts\\" : "contracts",
+            "Logger\\" : "logger",
+            "Support\\" : "support",
+            "Commands\\" : "commands"
 	    }
 	 }
 

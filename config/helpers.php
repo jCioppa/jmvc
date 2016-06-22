@@ -34,6 +34,18 @@
 
 /* }}} */
 
+    if (! function_exists("fold")) {
+        function fold($arr, $f, $i) {
+            return empty($arr) ? $i : f($arr[0], fold(array_slice($arr, 1), $f, $i));
+        }
+    }
+
+    if (! function_exists("map")) {
+        function map($f, $arr) {
+            return array_merge([$f($arr[0])], map($f, array_slice($arr, 1)));
+        }
+    }
+
     if (! function_exists("view")) {
         function view($view) {
             return new App\Views\View($view);
@@ -99,42 +111,59 @@
         }
     }
 
-    function redirect($url) {
-        return new App\Http\Redirect\Redirector($url);
-    }
-
-    function error($error){
-        return redirect(SERVER . '/error')->withError($error);
-    }
-
-    function storage_path($file){ 
-        return ROOT . '/storage/' . $file;
-    }
-
-    function base_path($file) {
-        return app()->basePath() . "/$file";
-    }
- 
-    function viewPage($page) {
-        return App\Config::get('views.paths')[0] . "/$page.php"; 
-    }
-    
-    function dump_array($array) {
-        foreach($array as $key => $val) {
-            if (is_array($val)) {
-                echo($key . ' : '); 
-                dump_array($val); 
-                echo('<br>');
-            }
-
-            else {
-                echo ($key . ' : ' . $val . '<br>');
-            }
+    if (!function_exists("redirect")) {
+        function redirect($url) {
+            return new App\Http\Redirect\Redirector($url);
         }
     }
 
-    function app() {
-        return App\App::app();
+    if (!function_exists("storage_path")) {
+        function storage_path($file){ 
+            return ROOT . '/storage/' . $file;
+        }
+    }
+
+    if (!function_exists("base_path")) {
+        function base_path($file) {
+            return app()->basePath() . "/$file";
+        }
+    }
+
+   if (!function_exists("viewPage")) { 
+        function viewPage($page) {
+            return App\Config::get('views.paths')[0] . "/$page.php"; 
+        }
+   }
+
+   if (!function_exists("dump_array")) { 
+        function dump_array($array) {
+            foreach($array as $key => $val) {
+                if (is_array($val)) {
+                    echo($key . ' : '); 
+                    dump_array($val); 
+                    echo('<br>');
+                }
+
+                else {
+                    echo ($key . ' : ' . $val . '<br>');
+                }
+            }
+        }
+   }
+
+    if (!function_exists("error")) {
+        function error($status, $message) {
+            return view("errors/error")->withStatus($status)->withMessage($message);
+        }
+    }
+
+    if (!function_exists("app")) {
+        function app($name = null) {
+            $app = App\App::app();
+            if ($name === null) return $app;
+            else return $app->make($name);
+
+        }
     }
 
 

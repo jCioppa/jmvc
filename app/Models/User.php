@@ -18,6 +18,7 @@
             $this->deleteStmt = self::$PDO->prepare('delete from users where id = :id');
             $this->updateStmt = self::$PDO->prepare('update users set name = :name where id = :id');
             $this->allStmt = self::$PDO->prepare('select * from users');
+
         }
 
         public function whereStmt(array $array) {

@@ -7,6 +7,7 @@
         public function __construct(){}
 
         public static function get($val, $default = null) {
+
             $vals = explode('.', $val);
             if (!$vals) return null;
 
@@ -24,8 +25,13 @@
 
         }
 
-        public static function test() {
-            echo Config::get('app.name', 'default name');
+        public static function __callStatic($file, $args) {
+            $path = CONFIG_FILES . "/$file" . '.php'; 
+            if(! file_exists($path)) return null;
+            $settings = include ($path);
+            if (empty($args)) return $settings;
+            $key = $args[0];
+            return isset($settings[$key]) ? $settings[$key] : null;
         }
 
     }

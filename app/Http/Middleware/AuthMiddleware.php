@@ -8,7 +8,7 @@
 
             if (app()->user() === null) {
                 $this->caught = true;
-                return view('error');
+                return redirect(SERVER); 
             }
 
             return $next($request);

@@ -47,7 +47,6 @@
                     $_SESSION[__CLASS__]['flash_message'] = null;
                 }
             }
-        
         } 
 
         public function flush() {

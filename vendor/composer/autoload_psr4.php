@@ -8,8 +8,11 @@ $baseDir = dirname($vendorDir);
 return array(
     'Test\\' => array($baseDir . '/tests'),
     'Symfony\\Component\\Yaml\\' => array($vendorDir . '/symfony/yaml'),
+    'Support\\' => array($baseDir . '/support'),
+    'Logger\\' => array($baseDir . '/logger'),
     'Doctrine\\Instantiator\\' => array($vendorDir . '/doctrine/instantiator/src/Doctrine/Instantiator'),
     'Contracts\\' => array($baseDir . '/contracts'),
     'Config\\' => array($baseDir . '/config'),
+    'Commands\\' => array($baseDir . '/commands'),
     'App\\' => array($baseDir . '/app'),
 );

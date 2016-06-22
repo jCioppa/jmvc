@@ -24,7 +24,8 @@
         protected $providers = array();
         protected $aliases = array();
         protected $caughtMiddleware = "";
-
+        protected $environment = "browser";
+        
         // global middleware {{{
         protected $middleware = [ 
             "\App\Http\Middleware\BasicMiddleware", 
@@ -104,7 +105,7 @@
         }
 
         public function registerProviders() {
-            $providers = Config::get('app.providers');  
+            $providers = Config::app('providers');  
             foreach($providers as $provider) {
                 if (class_exists($provider)) {
                     $p = new $provider;
@@ -121,39 +122,50 @@
             session()->markFlashed();
 
             $response = $this->dispatch($request);
-             
-            if ($response instanceof \App\Http\Response\Response)  {
-                $response->send();
-            } else  {
-                print_r($response);     
-            }
+            $response->send();
+
             session()->flushFlashed();
             session()->set('last_page', $response->lastPage());
 
             $this->terminate($request, $response);
 
         }
- 
+
+
         public function dispatch(Request $request = null) {
 
             $method = $request ? $request->method() : $this->getMethod();
             $url = $request ? $request->query_string() : $this->getPathInfo();
             $response = new Response();
-        
-            $ret = $this->sendThroughPipeline($this->middleware, function () use ($response, $method, $url) {
-                if ($this->hasRoute($url)) {
-                    $args = $this->extractArgs($url);
-                    return $this->handleFoundRoute($response, $method, $this->routes[$url], $args);
+
+            try {
+
+                $ret = $this->sendThroughPipeline($this->middleware, function () use ($response, $method, $url) {
+                   
+                    if ($this->hasRoute($url)) {
+                        $args = $this->extractArgs($url);
+                        return $this->handleFoundRoute($response, $method, $this->routes[$url], $args);
+                    }
+                    
+                    throw new \App\Exceptions\HttpException(404, "page not found: " . $url);
+
+                });
+
+                if ($ret instanceof \App\Http\Response\Response)  {
+                    return $ret;
+                } else {
+                    return $response->withStatus(200)->withContent($ret);
                 }
-                return $response->withLog("page not found")->withStatus(404)->withContent("<h1>Route not defined</h1>");
-            });
 
-            if ($ret instanceof \App\Http\Response\Response) {
-                return $ret;
-            } else {
-                return $response->withStatus(404)->withLog("caught by middleware: " . $this->caughtMiddleware)->withContent($ret);
+            } catch (\Exception $e) {
+                return $this->sendToExceptionHandler($e);
             }
+        }
 
+        public function sendToExceptionHandler(\Exception $e) {
+            $handler = $this->make("handler");
+            $handler->report($e);
+            return $handler->render($this->make('request'), $e);
         }
 
         public function sendThroughPipeline($middleware, \Closure $next) {
@@ -162,7 +174,7 @@
                 return $next();
             
             return (new \App\Pipeline\Pipeline($this))
-                ->send($this->make("App\Http\Request\Request"))
+                ->send($this->make("request"))
                 ->through($middleware)
                 ->then($next);
 
@@ -171,78 +183,33 @@
     /* request handling {{{ */
 
         public function handleFoundRoute(Response $response, $method, $route, $args = []) {
+
             if ($method == $route->method()) {
+
                 $middleware = $route->middleware();
-                return $this->sendThroughPipeline(
+
+                $ret = $this->sendThroughPipeline(
                     $middleware, 
                     function () use ($response, $route, $args) { 
                         return $this->handleMatchedRoute($response, $route, $args);
                     }
                 );
+                
+                if ($ret instanceof \App\Http\Response\Response) {
+                    return $ret;
+                } else {
+                    return $response->withStatus(200)->withContent($ret);
+                }
+
             } 
 
-            return $response->withLog("something went wrong")->withStatus(500)->withContent("<h1>Method clash</h1>");
+            throw new \App\Exceptions\ServerException(500, "method clash");
+
         }
 
         public function handleMatchedRoute(Response $response, $route, $args = []) {
-
             $action = $route->action(); 
-
-            if ($route->isControllerAction()){
-                    return $this->handleControllerAction($action, $response, $args);
-            } 
-
-            if($route->isClosureAction()){
-                    return $this->handleClosureAction($action, $response, $args);
-            }
-       
-        }
-
-        public function handleControllerAction(\App\Action\ControllerAction $action, Response $response, $args = []) {
-
-                $controller = $action->controller();
-                $method = $action->controllerMethod();
-
-                if ($this->controller_exists($controller)) {
-
-                    $instance = new $controller;
-                    
-                    if ($this->class_method_exists($controller, $method)){
-
-                        $ret = $this->callControllerMethod($instance, $method, $args);
-                        return $response
-                            ->withStatus(200)
-                            ->withContent($ret);
-                    }
-
-                    else  {
-
-                        return $response
-                            ->withLog("something went wrong!")
-                            ->withStatus(500)
-                            ->withContent("<h1>Method error</h1>");
-
-                    }
-
-                } else {
-
-                    return $response
-                        ->withLog("whoops, something went wrong!")
-                        ->withStatus(500)
-                        ->withContent("<h1>Controller error</h1>");
-
-                }
-
-
-        }
-
-        public function handleClosureAction(\App\Action\ClosureAction $action, Response $response, $args = []){
-                        $closure = $action->closure();
-                        $ret = $this->callClosureAction($closure, $args);
-
-                        return $response
-                            ->withStatus(200)
-                            ->withContent($ret);
+            return $action->perform($this, $response, $args);
         }
 
         public function callControllerMethod($instance, $method, $arguments = []) {
@@ -270,7 +237,7 @@
                 if($typeHint) $typeHint = $typeHint->name;
 
                 if ($this->hasBinding($typeHint)) {
-                    $arg = $this->resolve($typeHint);
+                    $arg = $this->make($typeHint);
                     array_push($args, $arg);
                 } 
             }
@@ -297,6 +264,14 @@
 
         public function hasMiddleware() {
             return !empty($this->middleware);
+        }
+
+        public function setEnvironment($env) {
+            $this->environment = $env;
+        }
+
+        public function environment() {
+            return $this->environment;
         }
 
         // ApplicationContract implementation {{{
@@ -327,7 +302,7 @@
             return $this->basePath() . '/database';
         }
 
-        public function environment() {
+        public function env() {
             $env = app("APP_ENV", "production"); 
             return $env;
         }

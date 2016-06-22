@@ -9,7 +9,7 @@
     class ErrorController extends BaseController {
 
         public function index() {
-            return view('error');
+            return error(404, "page not found");
         }
 
     }

@@ -38,9 +38,7 @@
             };
 
             $initial = function($r) use ($destination) { return $destination(); };
-
             $ret = array_reduce($this->stops, $f, $initial );
-
             return $ret($this->traveller);
 
         }

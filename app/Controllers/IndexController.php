@@ -45,8 +45,7 @@ namespace App\Controllers;
             ]);
 
             if (!$valid) {
-                return redirect(SERVER . '/error')
-                    ->with(['warning' =>'invalid request']);
+                return error("500", "validation fail");
             }
 
             return $request->input();

@@ -6,7 +6,6 @@
 
         protected $method; 
         protected $action;
-
         protected $middleware = [];
         protected $alias = null;
 
